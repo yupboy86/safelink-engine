@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeLink Alarms - Field Engine v5.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #e0e0e0; margin: 20px; }
+        .container { max-width: 850px; margin: 0 auto; background: #1e1e1e; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h1, h2, h3 { color: #00aaff; border-bottom: 2px solid #333; padding-bottom: 8px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea, button { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+        button { background: #00aaff; color: #fff; font-weight: bold; cursor: pointer; border: none; margin-top: 10px; }
+        button:hover { background: #0088cc; }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        
+        .flex-row { display: flex; gap: 10px; margin-bottom: 8px; }
+        .flex-row select { flex: 3; }
+        .flex-row input { flex: 1; }
+        .flex-row button { flex: 1; margin-top: 0; }
+
+        .checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; background: #2a2a2a; padding: 10px; border-radius: 4px; border: 1px solid #444; }
+        .checkbox-group label { display: flex; align-items: center; gap: 6px; font-weight: normal; margin-bottom: 0; cursor: pointer; }
+        .checkbox-group input[type="checkbox"], .checkbox-group input[type="radio"] { width: auto; margin: 0; }
+
+        .editor-table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 0.9em; }
+        .editor-table th, .editor-table td { border: 1px solid #444; padding: 6px; text-align: left; }
+        .btn-del { background: #dc3545; padding: 4px 8px; border-radius: 3px; font-size: 0.8em; }
+
+        .custom-box { background: #262626; padding: 12px; border-radius: 4px; border: 1px solid #333; margin-top: 10px; }
+        
+        .sig-container { display: flex; gap: 15px; margin-top: 10px; }
+        .sig-box { flex: 1; background: #2a2a2a; padding: 10px; border-radius: 4px; border: 1px solid #444; }
+        .sig-canvas { background: #ffffff; width: 100%; height: 100px; border: 1px solid #888; border-radius: 3px; touch-action: none; cursor: crosshair; }
+        .btn-clear { background: #6c757d; padding: 4px 10px; font-size: 0.8em; margin-top: 5px; width: auto; }
+
+        /* STRICT 8.5 x 11 PAGE CANVAS (US Letter Aspect Ratio) */
+        #quote-preview { 
+            width: 8.5in; 
+            min-height: 11in; 
+            background: #ffffff; 
+            color: #111111; 
+            padding: 0.45in 0.55in; 
+            box-sizing: border-box; 
+            margin: 25px auto 0 auto; 
+            box-shadow: 0 0 10px rgba(255,255,255,0.2); 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+        }
+        .header-container { display: flex; justify-content: space-between; align-items: flex-start; }
+        .brand-logo-preview { max-height: 95px; max-width: 240px; object-fit: contain; margin-bottom: 4px; }
+        .header-title { margin:0; color:#0f2b48; line-height: 1; font-size: 1.25em; letter-spacing: 0.5px; }
+        .tagline { font-style: italic; color: #b81c24; font-weight: bold; font-size: 0.82em; margin-top: 2px; letter-spacing: 0.4px; }
+        .contact-info { color: #555; margin-top: 3px; font-size: 0.72em; line-height: 1.25; }
+        
+        /* INVOICE METADATA TABLE */
+        .inv-meta-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.78em; }
+        .inv-meta-table th { background: #f0f4f8; color: #0f2b48; border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+        .inv-meta-table td { border: 1px solid #ccc; padding: 4px 6px; font-weight: bold; color: #222; }
+
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .item-table th, .item-table td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 0.82em; }
+        .item-table th { background: #0f2b48; color: #fff; }
+        .discount-row { color: #28a745; font-weight: bold; background-color: #f8fff9; }
+        .totals { text-align: right; margin-top: 8px; font-size: 0.98em; }
+        
+        .section-box { margin-top: 8px; background: #f9f9f9; border-left: 4px solid #0f2b48; padding: 6px 10px; font-size: 0.78em; }
+        .section-box h4 { margin: 0 0 2px 0; color: #0f2b48; font-size: 0.85em; }
+
+        .payment-details { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px; background: #f4f6f8; border: 1px solid #e0e0e0; padding: 6px 8px; border-radius: 4px; font-size: 0.78em; }
+        .payment-methods span { display: inline-block; background: #e0e7ff; color: #1e40af; padding: 2px 5px; border-radius: 3px; font-weight: bold; font-size: 0.72em; margin-right: 3px; margin-top: 2px; }
+        .zelle-qr-preview { max-height: 65px; width: auto; border: 1px solid #ccc; padding: 2px; background: #fff; border-radius: 4px; }
+
+        .preview-sig-container { display: flex; justify-content: space-between; margin-top: 8px; border-top: 1px solid #ddd; padding-top: 6px; }
+        .preview-sig-box { width: 48%; font-size: 0.72em; color: #333; }
+        .preview-sig-img { max-height: 40px; width: auto; display: block; margin-bottom: 2px; border-bottom: 1px solid #000; }
+
+        .warranty-box { font-size: 0.7em; color: #444; margin-top: 8px; border-top: 1px solid #ccc; padding-top: 5px; text-align: justify; }
+        .badge { background: #e6f7ff; border: 1px solid #91d5ff; color: #0050b3; padding: 4px 8px; border-radius: 4px; font-weight: bold; margin-top: 6px; display: inline-block; font-size: 0.78em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>SafeLink Alarms — Field Engine v5.0</h1>
+    
+    <!-- MODE SELECTOR DROPDOWN -->
+    <div class="form-group" style="background:#2a2a2a; padding:12px; border-radius:6px;">
+        <label style="color:#00aaff; font-size:1.05em;">Select Document Mode:</label>
+        <select id="docModeSelect" onchange="changeDocMode()" style="font-weight:bold; font-size:1.05em;">
+            <option value="QUOTE">PROPOSAL / QUOTE (SL- Prefix)</option>
+            <option value="INVOICE">SERVICE INVOICE (INV- Prefix)</option>
+            <option value="TICKET">SERVICE TICKET (ST- Prefix)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Upload Custom Logo (Top-Right Header Image):</label>
+        <input type="file" id="logoUploadInput" accept="image/*" onchange="loadHeaderLogo(event)">
+    </div>
+
+    <!-- DOCUMENT IDS & DATES -->
+    <div class="form-group">
+        <label>Document # & Service Date:</label>
+        <div class="flex-row">
+            <input type="text" id="docNum" placeholder="Document #">
+            <input type="date" id="docCustomDate">
+            <input type="text" id="orderNum" placeholder="Order Tracking #">
+        </div>
+    </div>
+
+    <!-- CLIENT & DISPATCH ROUTING METADATA -->
+    <div class="form-group">
+        <label>Client & Account Identification:</label>
+        <div class="flex-row">
+            <input type="text" id="clientID" placeholder="Customer ID (e.g. CUST-9042)" style="flex:1;">
+            <input type="text" id="clientName" placeholder="Client / Facility Name" style="flex:2;">
+        </div>
+        <input type="text" id="clientAddress" placeholder="Service Address (e.g. 135 West Fay Avenue, Addison, IL 60126)" style="margin-top:6px;">
+    </div>
+
+    <!-- DISPATCH & AHJ AGENCY CROSS-REFERENCE -->
+    <div class="form-group">
+        <label>Dispatch Center & AHJ Reference:</label>
+        <div class="flex-row">
+            <input type="text" id="dispatchPosNum" placeholder="Dispatch Position # (e.g. POS-412)" style="flex:1;">
+            <input type="text" id="ahjAgency" placeholder="AHJ / Dispatch Agency (e.g. DU-COMM / Addison Fire)" style="flex:2;">
+        </div>
+    </div>
+
+    <!-- SERVICE CATEGORIES CHECKLIST -->
+    <div class="form-group">
+        <label>Service Categories Rendered / Requested:</label>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="svcCatInstall"> Installation</label>
+            <label><input type="checkbox" id="svcCatRepair" checked> Service Repair</label>
+            <label><input type="checkbox" id="svcCatInspect"> Inspection</label>
+        </div>
+    </div>
+
+    <!-- HARDWARE SELECTION & CUSTOM ITEM BUILDER -->
+    <div class="form-group">
+        <label>Add Preset Hardware:</label>
+        <div class="flex-row">
+            <select id="itemPreset">
+                <option value="">-- Select Retail Hardware --</option>
+                <option value="BATT-7AH|UltraTech 12V 7AH SLA Core Power Cell|65.00">UltraTech 12V 7AH Backup Battery ($65.00)</option>
+                <option value="BATT-12AH|UltraTech 12V 12AH SLA Backup Battery|95.00">UltraTech 12V 12AH Backup Battery ($95.00)</option>
+                <option value="AES-7707P|AES 7707P-88-M 2.0 Fire Mesh Subscriber Unit|1450.00">AES 7707P Fire Mesh Subscriber ($1,450.00)</option>
+                <option value="AES-7177H|AES 7177H-88-ULP Hybrid Link Network Bridge|1995.00">AES 7177H Hybrid Network Bridge ($1,995.00)</option>
+                <option value="OOMA-AIR|Ooma AirDial Managed Voice Hardware Unit|995.00">Ooma AirDial Elevator/POTS Unit ($995.00)</option>
+                <option value="RES-LTEM|Resideo LTEM-XV/XA Universal Platform|395.00">Resideo LTEM-XV Cellular Communicator ($395.00)</option>
+            </select>
+            <input type="number" id="itemQty" value="1" min="1" placeholder="Qty">
+            <button type="button" onclick="addItem()">+ Add Preset</button>
+        </div>
+
+        <div class="custom-box">
+            <label style="color:#00aaff; font-size:0.9em;">Or Add Custom / Non-Preset Item:</label>
+            <div class="flex-row">
+                <input type="text" id="customDesc" placeholder="Item Description (e.g. ADI Camera Arm Mount)" style="flex:3;">
+                <input type="number" id="customQty" value="1" min="1" placeholder="Qty" style="flex:1;">
+                <input type="number" id="customPrice" placeholder="Unit Price ($)" step="0.01" style="flex:1.5;">
+                <button type="button" onclick="addCustomItem()" style="background:#17a2b8;">+ Add Custom</button>
+            </div>
+        </div>
+        
+        <table class="editor-table" id="addedItemsTable" style="display:none;">
+            <thead>
+                <tr><th>Hardware</th><th>Qty</th><th>Unit Price</th><th>Total</th><th></th></tr>
+            </thead>
+            <tbody id="addedItemsList"></tbody>
+        </table>
+    </div>
+
+    <div class="form-group">
+        <label>Labor Rate & Hours:</label>
+        <div class="flex-row">
+            <select id="laborRate">
+                <option value="135.00">Active Field Repair & Troubleshooting ($135/hr)</option>
+                <option value="125.00">Standard Field Inspection/Labor ($125/hr)</option>
+                <option value="165.00">System Programming & Commissioning ($165/hr)</option>
+            </select>
+            <input type="number" id="laborHours" value="1" min="0" step="0.5" placeholder="Labor Hrs">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Administrative / AHJ Portal Mandate Fee:</label>
+        <div class="flex-row">
+            <select id="adminRate">
+                <option value="125.00">Standard Admin / AHJ Processing ($125/hr)</option>
+            </select>
+            <input type="number" id="adminHours" value="1.0" min="0" step="0.5" placeholder="Admin Hrs">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Promotional / Marketing Discount ($ Off):</label>
+        <div class="flex-row">
+            <input type="number" id="discountAmount" value="0.00" min="0" step="5.00" placeholder="e.g. 75.00">
+            <input type="text" id="discountReason" placeholder="Reason (e.g., New Customer Discount)" style="flex:2;">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Payment Terms:</label>
+        <div class="checkbox-group">
+            <label><input type="radio" name="payTerms" value="Due on Receipt"> Due on Receipt</label>
+            <label><input type="radio" name="payTerms" value="Net 30 Days" checked> Net 30 Days</label>
+            <label><input type="radio" name="payTerms" value="50% Deposit / 50% at Completion"> 50% Deposit / 50% at Completion</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Accepted Payment Methods:</label>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="payMethodCash" checked> Cash</label>
+            <label><input type="checkbox" id="payMethodCheck" checked> Check</label>
+            <label><input type="checkbox" id="payMethodZelle" checked> Zelle</label>
+            <label><input type="checkbox" id="payMethodCard" checked> Credit Card</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Zelle Information & QR Upload:</label>
+        <div class="flex-row">
+            <input type="text" id="zelleContact" value="708-938-8761" placeholder="Zelle Phone or Email" style="flex:2;">
+            <input type="file" id="zelleQrInput" accept="image/*" onchange="loadZelleQR(event)" style="flex:2;">
+        </div>
+    </div>
+
+    <!-- SEPARATED SCOPE & SERVICE NOTES -->
+    <div class="form-group">
+        <label>Services Needed / Client Request Scope:</label>
+        <textarea id="servicesNeededInput" placeholder="Enter scope of services needed or client complaint..."></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Technician Service Repair Results / Findings:</label>
+        <textarea id="techResultsInput" placeholder="Enter completed repair results, parts swapped, testing outcomes..."></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>SafeLink360 Tier Lease Option:</label>
+        <select id="caasTier">
+            <option value="0">Outright Purchase / CapEx (Pay-As-You-Go)</option>
+            <option value="45">SafeLink360 Silver Tier A (1-25 Loops) - $45/mo</option>
+            <option value="79">SafeLink360 Silver Tier B (26-75 Loops) - $79/mo</option>
+            <option value="65">SafeLink360 Gold Tier A (1-25 Loops) - $65/mo</option>
+            <option value="115">SafeLink360 Gold Tier B (26-75 Loops) - $115/mo</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Digital Signatures (Touch/Mouse Signed in Field):</label>
+        <div class="sig-container">
+            <div class="sig-box">
+                <label style="font-size:0.85em;">Technician Signature:</label>
+                <canvas id="techSigPad" class="sig-canvas"></canvas>
+                <button type="button" class="btn-clear" onclick="clearSig('tech')">Clear Tech Sig</button>
+            </div>
+            <div class="sig-box">
+                <label style="font-size:0.85em;">Client Authorization Signature:</label>
+                <canvas id="clientSigPad" class="sig-canvas"></canvas>
+                <button type="button" class="btn-clear" onclick="clearSig('client')">Clear Client Sig</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button onclick="generateQuote()">Generate Preview</button>
+        <button onclick="exportPNG()" style="background:#28a745;">Export Image (for Texting)</button>
+        <button onclick="exportPDF()" style="background:#dc3545;">Export 8.5x11 PDF (for Email)</button>
+    </div>
+
+    <!-- PREVIEW BOX FOR EXPORT (8.5 x 11 RATIO) -->
+    <div id="quote-preview" style="display:none;">
+        <div>
+            <div class="header-container">
+                <div>
+                    <h2 class="header-title">SAFELINK ALARMS PLLC</h2>
+                    <div class="tagline">Protecting What Matters Most</div>
+                    <div class="contact-info">
+                        1755 Park Street, Suite 200, Naperville, IL 60563 | Agency Lic #127.001908<br>
+                        <strong>Phone:</strong> 708-938-8761 | <strong>Email:</strong> sales@safelinkalarms.com<br>
+                        <strong>Web:</strong> www.safelinkalarms.com
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div id="previewLogoBox"></div>
+                    <h3 id="lblDocTypeHeader" style="margin:0; color:#555; font-size:1.15em;">PROPOSAL / QUOTE</h3>
+                    
+                    <!-- DYNAMIC INVOICE/QUOTE TOP RIGHT DETAILS -->
+                    <div style="margin-top:2px; font-size:0.78em; color:#333;"><strong id="lblDocNumLabel">Document #:</strong> <span id="lblQuoteNum"></span></div>
+                    <div style="font-size:0.78em; color:#666;"><strong>Service Date:</strong> <span id="lblQuoteDate"></span></div>
+                    <div id="lblOrderNumRow" style="font-size:0.78em; color:#333; display:none;"><strong>Order Tracking #:</strong> <span id="lblOrderNum"></span></div>
+                </div>
+            </div>
+            <hr style="border:0; border-top:1px solid #ccc; margin:6px 0;">
+
+            <p style="margin:2px 0; font-size:0.82em;">
+                <strong>Prepared For:</strong> <span id="lblClient"></span> | <strong>Customer ID:</strong> <span id="lblClientID"></span><br>
+                <strong>Location:</strong> <span id="lblAddress"></span><br>
+                <strong>Dispatch Pos #:</strong> <span id="lblDispatchPos"></span> | <strong>AHJ / Agency:</strong> <span id="lblAgency"></span><br>
+                <strong>Services Checked:</strong> <span id="lblServiceCategories"></span>
+            </p>
+
+            <!-- INVOICE SPECIFIC METADATA TABLE -->
+            <table class="inv-meta-table" id="invMetaTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Customer ID</th>
+                        <th>Terms Description</th>
+                        <th>Service Date</th>
+                        <th>Net Due Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="lblInvCustID">-</td>
+                        <td id="lblInvTerms">-</td>
+                        <td id="lblInvDate">-</td>
+                        <td id="lblInvNetDueDate">-</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <table class="item-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th style="width: 40px; text-align:center;">Qty</th>
+                        <th style="width: 75px;">Price</th>
+                        <th style="width: 75px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="lineItems"></tbody>
+            </table>
+
+            <div class="totals">
+                <p id="subtotalLine" style="font-size: 0.82em; color: #555; display:none; margin: 2px 0;">Gross Subtotal: $<span id="lblSubtotal"></span></p>
+                <p style="font-size: 1.02em; color: #0f2b48; margin: 2px 0;">Total Amount: <strong>$<span id="lblTotal"></span></strong></p>
+            </div>
+
+            <div class="payment-details">
+                <div>
+                    <strong>Payment Terms:</strong> <span id="lblPayTerms">Net 30 Days</span><br>
+                    <div class="payment-methods" style="margin-top:2px;">
+                        <strong>Accepted Methods:</strong> <span id="lblPayMethods"></span>
+                    </div>
+                    <div style="margin-top:2px; font-size:0.85em;">
+                        <strong>Zelle Direct:</strong> <span id="lblZelleContact">708-938-8761</span>
+                    </div>
+                </div>
+                <div id="zelleQrContainer" style="display:none; text-align:center;">
+                    <img id="lblZelleImg" class="zelle-qr-preview" src="" alt="Zelle QR Code">
+                    <div style="font-size:0.58em; color:#666; margin-top:1px;">Scan to Pay via Zelle</div>
+                </div>
+            </div>
+
+            <div id="caasBox" class="badge" style="display:none;">
+                SafeLink360 Compliance-as-a-Service Option: $<span id="lblCaasRate"></span>/mo ($0-Down Hardware Conversion Available)
+            </div>
+
+            <!-- INVOICE & SERVICE TICKET SEPARATED NOTES BOXES -->
+            <div id="previewServicesNeededBox" class="section-box" style="display:none;">
+                <h4>Services Needed / Scope Request:</h4>
+                <div id="lblServicesNeeded"></div>
+            </div>
+
+            <div id="previewTechResultsBox" class="section-box" style="display:none;">
+                <h4>Results of Service Repair (Technician Findings):</h4>
+                <div id="lblTechResults"></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="preview-sig-container">
+                <div class="preview-sig-box">
+                    <div id="techSigImgContainer"></div>
+                    <strong>Technician Sign-Off:</strong><br>
+                    Licensed Field Inspector (#124.002223)
+                </div>
+                <div class="preview-sig-box">
+                    <div id="clientSigImgContainer"></div>
+                    <strong>Client / Facility Acceptance:</strong><br>
+                    Authorized Representative Signature
+                </div>
+            </div>
+
+            <div class="warranty-box">
+                <strong>15-Day Hardware & Labor Warranty:</strong> SafeLink Alarms PLLC provides a comprehensive 15-day warranty on all hardware components installed and field labor performed under this proposal/invoice/service ticket, effective immediately upon service completion. All work is inspected under License #124.002223.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedItems = [];
+    let customHeaderLogoBase64 = "";
+    let zelleQrBase64 = "";
+    const seqNum = Math.floor(1000 + Math.random() * 9000);
+
+    let techCanvas, techCtx, clientCanvas, clientCtx;
+    let isDrawingTech = false, isDrawingClient = false;
+
+    window.onload = function() {
+        changeDocMode();
+        document.getElementById('docCustomDate').valueAsDate = new Date();
+        document.getElementById('orderNum').value = `ORD-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        initSigPads();
+    };
+
+    function initSigPads() {
+        techCanvas = document.getElementById('techSigPad');
+        techCtx = techCanvas.getContext('2d');
+        clientCanvas = document.getElementById('clientSigPad');
+        clientCtx = clientCanvas.getContext('2d');
+
+        setupPad(techCanvas, techCtx, () => isDrawingTech, v => isDrawingTech = v);
+        setupPad(clientCanvas, clientCtx, () => isDrawingClient, v => isDrawingClient = v);
+    }
+
+    function setupPad(canvas, ctx, getDrawing, setDrawing) {
+        ctx.strokeStyle = "#000080";
+        ctx.lineWidth = 2;
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        canvas.addEventListener('mousedown', e => { setDrawing(true); ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); });
+        canvas.addEventListener('mousemove', e => { if (getDrawing()) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } });
+        window.addEventListener('mouseup', () => setDrawing(false));
+
+        canvas.addEventListener('touchstart', e => { setDrawing(true); ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault(); }, {passive: false});
+        canvas.addEventListener('touchmove', e => { if (getDrawing()) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); } }, {passive: false});
+        canvas.addEventListener('touchend', () => setDrawing(false));
+    }
+
+    function clearSig(type) {
+        if (type === 'tech') techCtx.clearRect(0, 0, techCanvas.width, techCanvas.height);
+        if (type === 'client') clientCtx.clearRect(0, 0, clientCanvas.width, clientCanvas.height);
+    }
+
+    function changeDocMode() {
+        const mode = document.getElementById('docModeSelect').value;
+        const year = new Date().getFullYear();
+        const docInput = document.getElementById('docNum');
+
+        if (mode === 'INVOICE') docInput.value = `INV-${year}-${seqNum}`;
+        else if (mode === 'TICKET') docInput.value = `ST-${year}-${seqNum}`;
+        else docInput.value = `SL-${year}-${seqNum}`;
+    }
+
+    function loadHeaderLogo(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                customHeaderLogoBase64 = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function loadZelleQR(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                zelleQrBase64 = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function addItem() {
+        const val = document.getElementById('itemPreset').value;
+        const qty = parseInt(document.getElementById('itemQty').value) || 1;
+        if (!val) return;
+
+        const [sku, desc, priceStr] = val.split('|');
+        const price = parseFloat(priceStr);
+
+        selectedItems.push({ desc, price, qty });
+        renderEditorTable();
+    }
+
+    function addCustomItem() {
+        const desc = document.getElementById('customDesc').value.trim();
+        const qty = parseInt(document.getElementById('customQty').value) || 1;
+        const price = parseFloat(document.getElementById('customPrice').value);
+
+        if (!desc) { alert("Please enter a custom item description."); return; }
+        if (isNaN(price) || price < 0) { alert("Please enter a valid price."); return; }
+
+        selectedItems.push({ desc, price, qty });
+        document.getElementById('customDesc').value = '';
+        document.getElementById('customQty').value = '1';
+        document.getElementById('customPrice').value = '';
+        renderEditorTable();
+    }
+
+    function removeItem(index) {
+        selectedItems.splice(index, 1);
+        renderEditorTable();
+    }
+
+    function renderEditorTable() {
+        const table = document.getElementById('addedItemsTable');
+        const tbody = document.getElementById('addedItemsList');
+        tbody.innerHTML = '';
+
+        if (selectedItems.length === 0) { table.style.display = 'none'; return; }
+
+        table.style.display = 'table';
+        selectedItems.forEach((item, index) => {
+            const total = item.price * item.qty;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.desc}</td>
+                    <td>${item.qty}</td>
+                    <td>$${item.price.toFixed(2)}</td>
+                    <td>$${total.toFixed(2)}</td>
+                    <td><button class="btn-del" onclick="removeItem(${index})">X</button></td>
+                </tr>`;
+        });
+    }
+
+    function generateQuote() {
+        const mode = document.getElementById('docModeSelect').value;
+        const isInvoice = (mode === 'INVOICE');
+
+        if (isInvoice) {
+            document.getElementById('lblDocTypeHeader').innerText = "SERVICE INVOICE";
+            document.getElementById('lblDocNumLabel').innerText = "Invoice #:";
+            document.getElementById('lblOrderNumRow').style.display = "block";
+            document.getElementById('invMetaTable').style.display = "table";
+        } else if (mode === 'TICKET') {
+            document.getElementById('lblDocTypeHeader').innerText = "SERVICE TICKET";
+            document.getElementById('lblDocNumLabel').innerText = "Ticket #:";
+            document.getElementById('lblOrderNumRow').style.display = "none";
+            document.getElementById('invMetaTable').style.display = "none";
+        } else {
+            document.getElementById('lblDocTypeHeader').innerText = "PROPOSAL / QUOTE";
+            document.getElementById('lblDocNumLabel').innerText = "Quote #:";
+            document.getElementById('lblOrderNumRow').style.display = "none";
+            document.getElementById('invMetaTable').style.display = "none";
+        }
+
+        const logoBox = document.getElementById('previewLogoBox');
+        if (customHeaderLogoBase64) {
+            logoBox.innerHTML = `<img src="${customHeaderLogoBase64}" class="brand-logo-preview" alt="SafeLink Logo">`;
+        } else {
+            logoBox.innerHTML = '';
+        }
+
+        document.getElementById('lblQuoteNum').innerText = document.getElementById('docNum').value || "DRAFT";
+        document.getElementById('lblOrderNum').innerText = document.getElementById('orderNum').value || "ORD-NONE";
+        
+        let dateObj = new Date();
+        const rawDate = document.getElementById('docCustomDate').value;
+        if (rawDate) {
+            const dateParts = rawDate.split('-');
+            dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            document.getElementById('lblQuoteDate').innerText = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
+        } else {
+            document.getElementById('lblQuoteDate').innerText = dateObj.toLocaleDateString();
+        }
+
+        // Calculate Net Due Date (30 Days from Service Date)
+        const netDueDateObj = new Date(dateObj);
+        netDueDateObj.setDate(netDueDateObj.getDate() + 30);
+        const formattedNetDueDate = `${netDueDateObj.getMonth() + 1}/${netDueDateObj.getDate()}/${netDueDateObj.getFullYear()}`;
+
+        // Customer & Dispatch Metadata
+        const custIDVal = document.getElementById('clientID').value.trim() || "CUST-GENERIC";
+        document.getElementById('lblClientID').innerText = custIDVal;
+        document.getElementById('lblClient').innerText = document.getElementById('clientName').value || "Valued Client";
+        document.getElementById('lblAddress').innerText = document.getElementById('clientAddress').value || "On-Site Location";
+        document.getElementById('lblDispatchPos').innerText = document.getElementById('dispatchPosNum').value.trim() || "N/A";
+        document.getElementById('lblAgency').innerText = document.getElementById('ahjAgency').value.trim() || "Local AHJ";
+
+        // Service Categories Checklist
+        const cats = [];
+        if (document.getElementById('svcCatInstall').checked) cats.push("Installation");
+        if (document.getElementById('svcCatRepair').checked) cats.push("Service Repair");
+        if (document.getElementById('svcCatInspect').checked) cats.push("Inspection");
+        document.getElementById('lblServiceCategories').innerText = cats.join(", ") || "General Service";
+
+        // Populate Invoice-Only Metadata Table
+        if (isInvoice) {
+            const termsRadio = document.querySelector('input[name="payTerms"]:checked');
+            const termsText = termsRadio ? termsRadio.value : "Net 30 Days";
+
+            document.getElementById('lblInvCustID').innerText = custIDVal;
+            document.getElementById('lblInvTerms').innerText = termsText;
+            document.getElementById('lblInvDate').innerText = document.getElementById('lblQuoteDate').innerText;
+            document.getElementById('lblInvNetDueDate').innerText = formattedNetDueDate;
+        }
+
+        const tbody = document.getElementById('lineItems');
+        tbody.innerHTML = "";
+        let grossSubtotal = 0;
+
+        selectedItems.forEach(item => {
+            const lineTotal = item.price * item.qty;
+            grossSubtotal += lineTotal;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.desc}</td>
+                    <td style="text-align:center;">${item.qty}</td>
+                    <td>$${item.price.toFixed(2)}</td>
+                    <td>$${lineTotal.toFixed(2)}</td>
+                </tr>`;
+        });
+
+        const laborRate = parseFloat(document.getElementById('laborRate').value);
+        const laborHrs = parseFloat(document.getElementById('laborHours').value) || 0;
+        if (laborHrs > 0) {
+            const laborTotal = laborRate * laborHrs;
+            grossSubtotal += laborTotal;
+            tbody.innerHTML += `
+                <tr>
+                    <td>Active Field Troubleshooting / Labor (${laborHrs} hr)</td>
+                    <td style="text-align:center;">1</td>
+                    <td>$${laborTotal.toFixed(2)}</td>
+                    <td>$${laborTotal.toFixed(2)}</td>
+                </tr>`;
+        }
+
+        const adminRate = parseFloat(document.getElementById('adminRate').value);
+        const adminHrs = parseFloat(document.getElementById('adminHours').value) || 0;
+        if (adminHrs > 0) {
+            const adminTotal = adminRate * adminHrs;
+            grossSubtotal += adminTotal;
+            tbody.innerHTML += `
+                <tr>
+                    <td>Administrative / AHJ Portal Processing Mandate (${adminHrs} hr)</td>
+                    <td style="text-align:center;">1</td>
+                    <td>$${adminTotal.toFixed(2)}</td>
+                    <td>$${adminTotal.toFixed(2)}</td>
+                </tr>`;
+        }
+
+        const discountVal = parseFloat(document.getElementById('discountAmount').value) || 0;
+        const discountReason = document.getElementById('discountReason').value || "Promotional Discount";
+        let finalTotal = grossSubtotal;
+
+        if (discountVal > 0) {
+            finalTotal = Math.max(0, grossSubtotal - discountVal);
+            tbody.innerHTML += `
+                <tr class="discount-row">
+                    <td>${discountReason}</td>
+                    <td style="text-align:center;">1</td>
+                    <td>-$${discountVal.toFixed(2)}</td>
+                    <td>-$${discountVal.toFixed(2)}</td>
+                </tr>`;
+            
+            document.getElementById('subtotalLine').style.display = 'block';
+            document.getElementById('lblSubtotal').innerText = grossSubtotal.toFixed(2);
+        } else {
+            document.getElementById('subtotalLine').style.display = 'none';
+        }
+
+        document.getElementById('lblTotal').innerText = finalTotal.toFixed(2);
+
+        const termsRadio = document.querySelector('input[name="payTerms"]:checked');
+        document.getElementById('lblPayTerms').innerText = termsRadio ? termsRadio.value : "Net 30 Days";
+
+        const methods = [];
+        if (document.getElementById('payMethodCash').checked) methods.push("<span>Cash</span>");
+        if (document.getElementById('payMethodCheck').checked) methods.push("<span>Check</span>");
+        if (document.getElementById('payMethodZelle').checked) methods.push("<span>Zelle</span>");
+        if (document.getElementById('payMethodCard').checked) methods.push("<span>Credit Card</span>");
+        document.getElementById('lblPayMethods').innerHTML = methods.join(" ") || "<span>Invoice / Check</span>";
+
+        document.getElementById('lblZelleContact').innerText = document.getElementById('zelleContact').value || "708-938-8761";
+        if (zelleQrBase64) {
+            document.getElementById('lblZelleImg').src = zelleQrBase64;
+            document.getElementById('zelleQrContainer').style.display = 'block';
+        } else {
+            document.getElementById('zelleQrContainer').style.display = 'none';
+        }
+
+        // Render Separated Notes Blocks
+        const servicesNeeded = document.getElementById('servicesNeededInput').value.trim();
+        if (servicesNeeded) {
+            document.getElementById('lblServicesNeeded').innerText = servicesNeeded;
+            document.getElementById('previewServicesNeededBox').style.display = 'block';
+        } else {
+            document.getElementById('previewServicesNeededBox').style.display = 'none';
+        }
+
+        const techResults = document.getElementById('techResultsInput').value.trim();
+        if (techResults) {
+            document.getElementById('lblTechResults').innerText = techResults;
+            document.getElementById('previewTechResultsBox').style.display = 'block';
+        } else {
+            document.getElementById('previewTechResultsBox').style.display = 'none';
+        }
+
+        const caasVal = document.getElementById('caasTier').value;
+        if (caasVal !== "0") {
+            document.getElementById('caasBox').style.display = "block";
+            document.getElementById('lblCaasRate').innerText = caasVal;
+        } else {
+            document.getElementById('caasBox').style.display = "none";
+        }
+
+        const techData = techCanvas.toDataURL();
+        const clientData = clientCanvas.toDataURL();
+        document.getElementById('techSigImgContainer').innerHTML = `<img src="${techData}" class="preview-sig-img">`;
+        document.getElementById('clientSigImgContainer').innerHTML = `<img src="${clientData}" class="preview-sig-img">`;
+
+        document.getElementById('quote-preview').style.display = "flex";
+    }
+
+    function exportPNG() {
+        const preview = document.getElementById('quote-preview');
+        html2canvas(preview, { scale: 2 }).then(canvas => {
+            const link = document.createElement('a');
+            const dNum = document.getElementById('docNum').value || 'DOCUMENT';
+            link.download = `SafeLink_${dNum}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
+
+    function exportPDF() {
+        const { jsPDF } = window.jspdf;
+        const preview = document.getElementById('quote-preview');
+        html2canvas(preview, { scale: 2 }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+            const dNum = document.getElementById('docNum').value || 'DOCUMENT';
+            pdf.addImage(imgData, 'PNG', 0, 0, 215.9, 279.4);
+            pdf.save(`SafeLink_${dNum}.pdf`);
+        });
+    }
+</script>
+</body>
+</html>
