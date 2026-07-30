@@ -1,2 +1,2 @@
 # safelink-engine
-Quote / Invoice / Service Ticket
+Quote / Invoice / Service Ticket / Receipt
