@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafeLink Alarms - Field Engine v5.0</title>
+    <title>SafeLink Alarms - Field Engine v6.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -58,7 +58,6 @@
         .tagline { font-style: italic; color: #b81c24; font-weight: bold; font-size: 0.82em; margin-top: 2px; letter-spacing: 0.4px; }
         .contact-info { color: #555; margin-top: 3px; font-size: 0.72em; line-height: 1.25; }
         
-        /* INVOICE METADATA TABLE */
         .inv-meta-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.78em; }
         .inv-meta-table th { background: #f0f4f8; color: #0f2b48; border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
         .inv-meta-table td { border: 1px solid #ccc; padding: 4px 6px; font-weight: bold; color: #222; }
@@ -76,6 +75,31 @@
         .payment-methods span { display: inline-block; background: #e0e7ff; color: #1e40af; padding: 2px 5px; border-radius: 3px; font-weight: bold; font-size: 0.72em; margin-right: 3px; margin-top: 2px; }
         .zelle-qr-preview { max-height: 65px; width: auto; border: 1px solid #ccc; padding: 2px; background: #fff; border-radius: 4px; }
 
+        /* RECEIPT SPECIFIC STYLING */
+        .paid-stamp { 
+            border: 3px solid #28a745; 
+            color: #28a745; 
+            font-size: 1.1em; 
+            font-weight: 900; 
+            padding: 4px 12px; 
+            border-radius: 6px; 
+            display: inline-block; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .thank-you-banner {
+            background: #0f2b48;
+            color: #ffffff;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.9em;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-top: 10px;
+            letter-spacing: 0.5px;
+        }
+
         .preview-sig-container { display: flex; justify-content: space-between; margin-top: 8px; border-top: 1px solid #ddd; padding-top: 6px; }
         .preview-sig-box { width: 48%; font-size: 0.72em; color: #333; }
         .preview-sig-img { max-height: 40px; width: auto; display: block; margin-bottom: 2px; border-bottom: 1px solid #000; }
@@ -87,7 +111,7 @@
 <body>
 
 <div class="container">
-    <h1>SafeLink Alarms — Field Engine v5.0</h1>
+    <h1>SafeLink Alarms — Field Engine v6.0</h1>
     
     <!-- MODE SELECTOR DROPDOWN -->
     <div class="form-group" style="background:#2a2a2a; padding:12px; border-radius:6px;">
@@ -95,6 +119,7 @@
         <select id="docModeSelect" onchange="changeDocMode()" style="font-weight:bold; font-size:1.05em;">
             <option value="QUOTE">PROPOSAL / QUOTE (SL- Prefix)</option>
             <option value="INVOICE">SERVICE INVOICE (INV- Prefix)</option>
+            <option value="RECEIPT">PAYMENT RECEIPT (REC- Prefix)</option>
             <option value="TICKET">SERVICE TICKET (ST- Prefix)</option>
         </select>
     </div>
@@ -140,6 +165,24 @@
             <label><input type="checkbox" id="svcCatInstall"> Installation</label>
             <label><input type="checkbox" id="svcCatRepair" checked> Service Repair</label>
             <label><input type="checkbox" id="svcCatInspect"> Inspection</label>
+        </div>
+    </div>
+
+    <!-- RECEIPT SPECIFIC CONTROLS -->
+    <div class="form-group custom-box" id="receiptControlsBox" style="display:none; background:#1e3a29; border-color:#28a745;">
+        <label style="color:#28a745; font-size:1.05em;">Receipt Payment Verification:</label>
+        <div class="checkbox-group" style="margin-bottom:8px;">
+            <label style="font-weight:bold; color:#fff;"><input type="checkbox" id="rcptPaidInFull" checked> Check Mark: Paid in Full ✔</label>
+        </div>
+        <div class="flex-row">
+            <input type="number" id="rcptAmountPaid" placeholder="Amount Paid ($)" step="0.01" style="flex:1;">
+            <select id="rcptPaymentMethod" style="flex:1;">
+                <option value="Zelle">Paid via Zelle</option>
+                <option value="Credit Card">Paid via Credit Card</option>
+                <option value="Check">Paid via Check</option>
+                <option value="Cash">Paid via Cash</option>
+            </select>
+            <input type="date" id="rcptPaymentDate" style="flex:1;">
         </div>
     </div>
 
@@ -294,9 +337,11 @@
                 </div>
                 <div style="text-align:right;">
                     <div id="previewLogoBox"></div>
+                    <div id="lblPaidStampBox" style="display:none;">
+                        <span class="paid-stamp">PAID IN FULL ✔</span>
+                    </div>
                     <h3 id="lblDocTypeHeader" style="margin:0; color:#555; font-size:1.15em;">PROPOSAL / QUOTE</h3>
                     
-                    <!-- DYNAMIC INVOICE/QUOTE TOP RIGHT DETAILS -->
                     <div style="margin-top:2px; font-size:0.78em; color:#333;"><strong id="lblDocNumLabel">Document #:</strong> <span id="lblQuoteNum"></span></div>
                     <div style="font-size:0.78em; color:#666;"><strong>Service Date:</strong> <span id="lblQuoteDate"></span></div>
                     <div id="lblOrderNumRow" style="font-size:0.78em; color:#333; display:none;"><strong>Order Tracking #:</strong> <span id="lblOrderNum"></span></div>
@@ -311,10 +356,10 @@
                 <strong>Services Checked:</strong> <span id="lblServiceCategories"></span>
             </p>
 
-            <!-- INVOICE SPECIFIC METADATA TABLE -->
+            <!-- INVOICE & RECEIPT METADATA TABLE -->
             <table class="inv-meta-table" id="invMetaTable" style="display:none;">
                 <thead>
-                    <tr>
+                    <tr id="metaHeaderRow">
                         <th>Customer ID</th>
                         <th>Terms Description</th>
                         <th>Service Date</th>
@@ -322,7 +367,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
+                    <tr id="metaDataRow">
                         <td id="lblInvCustID">-</td>
                         <td id="lblInvTerms">-</td>
                         <td id="lblInvDate">-</td>
@@ -346,6 +391,12 @@
             <div class="totals">
                 <p id="subtotalLine" style="font-size: 0.82em; color: #555; display:none; margin: 2px 0;">Gross Subtotal: $<span id="lblSubtotal"></span></p>
                 <p style="font-size: 1.02em; color: #0f2b48; margin: 2px 0;">Total Amount: <strong>$<span id="lblTotal"></span></strong></p>
+                
+                <!-- RECEIPT PAYMENT SUMMARY -->
+                <div id="receiptSummaryBox" style="display:none; font-size:0.9em; color:#28a745; margin-top:4px;">
+                    <p style="margin:2px 0;">Amount Paid: <strong>$<span id="lblRcptPaidAmt">0.00</span></strong></p>
+                    <p style="margin:2px 0; color:#111;">Remaining Balance: <strong>$<span id="lblRcptBalance">0.00</span></strong></p>
+                </div>
             </div>
 
             <div class="payment-details">
@@ -368,7 +419,6 @@
                 SafeLink360 Compliance-as-a-Service Option: $<span id="lblCaasRate"></span>/mo ($0-Down Hardware Conversion Available)
             </div>
 
-            <!-- INVOICE & SERVICE TICKET SEPARATED NOTES BOXES -->
             <div id="previewServicesNeededBox" class="section-box" style="display:none;">
                 <h4>Services Needed / Scope Request:</h4>
                 <div id="lblServicesNeeded"></div>
@@ -377,6 +427,11 @@
             <div id="previewTechResultsBox" class="section-box" style="display:none;">
                 <h4>Results of Service Repair (Technician Findings):</h4>
                 <div id="lblTechResults"></div>
+            </div>
+
+            <!-- RECEIPT THANK YOU BANNER -->
+            <div id="previewThankYouBanner" class="thank-you-banner" style="display:none;">
+                Thank you for doing business with SafeLink Alarms PLLC!
             </div>
         </div>
 
@@ -395,7 +450,7 @@
             </div>
 
             <div class="warranty-box">
-                <strong>15-Day Hardware & Labor Warranty:</strong> SafeLink Alarms PLLC provides a comprehensive 15-day warranty on all hardware components installed and field labor performed under this proposal/invoice/service ticket, effective immediately upon service completion. All work is inspected under License #124.002223.
+                <strong>15-Day Hardware & Labor Warranty:</strong> SafeLink Alarms PLLC provides a comprehensive 15-day warranty on all hardware components installed and field labor performed under this proposal/invoice/service ticket/receipt, effective immediately upon service completion. All work is inspected under License #124.002223.
             </div>
         </div>
     </div>
@@ -413,6 +468,7 @@
     window.onload = function() {
         changeDocMode();
         document.getElementById('docCustomDate').valueAsDate = new Date();
+        document.getElementById('rcptPaymentDate').valueAsDate = new Date();
         document.getElementById('orderNum').value = `ORD-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
         initSigPads();
     };
@@ -456,19 +512,28 @@
         const mode = document.getElementById('docModeSelect').value;
         const year = new Date().getFullYear();
         const docInput = document.getElementById('docNum');
+        const rcptBox = document.getElementById('receiptControlsBox');
 
-        if (mode === 'INVOICE') docInput.value = `INV-${year}-${seqNum}`;
-        else if (mode === 'TICKET') docInput.value = `ST-${year}-${seqNum}`;
-        else docInput.value = `SL-${year}-${seqNum}`;
+        if (mode === 'INVOICE') {
+            docInput.value = `INV-${year}-${seqNum}`;
+            rcptBox.style.display = "none";
+        } else if (mode === 'RECEIPT') {
+            docInput.value = `REC-${year}-${seqNum}`;
+            rcptBox.style.display = "block";
+        } else if (mode === 'TICKET') {
+            docInput.value = `ST-${year}-${seqNum}`;
+            rcptBox.style.display = "none";
+        } else {
+            docInput.value = `SL-${year}-${seqNum}`;
+            rcptBox.style.display = "none";
+        }
     }
 
     function loadHeaderLogo(event) {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                customHeaderLogoBase64 = e.target.result;
-            };
+            reader.onload = function(e) { customHeaderLogoBase64 = e.target.result; };
             reader.readAsDataURL(file);
         }
     }
@@ -477,9 +542,7 @@
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                zelleQrBase64 = e.target.result;
-            };
+            reader.onload = function(e) { zelleQrBase64 = e.target.result; };
             reader.readAsDataURL(file);
         }
     }
@@ -540,22 +603,49 @@
     function generateQuote() {
         const mode = document.getElementById('docModeSelect').value;
         const isInvoice = (mode === 'INVOICE');
+        const isReceipt = (mode === 'RECEIPT');
+
+        const stampBox = document.getElementById('lblPaidStampBox');
+        const thankYouBanner = document.getElementById('previewThankYouBanner');
+        const rcptSummaryBox = document.getElementById('receiptSummaryBox');
 
         if (isInvoice) {
             document.getElementById('lblDocTypeHeader').innerText = "SERVICE INVOICE";
             document.getElementById('lblDocNumLabel').innerText = "Invoice #:";
             document.getElementById('lblOrderNumRow').style.display = "block";
             document.getElementById('invMetaTable').style.display = "table";
+            stampBox.style.display = "none";
+            thankYouBanner.style.display = "none";
+            rcptSummaryBox.style.display = "none";
+        } else if (isReceipt) {
+            document.getElementById('lblDocTypeHeader').innerText = "PAYMENT RECEIPT";
+            document.getElementById('lblDocNumLabel').innerText = "Receipt #:";
+            document.getElementById('lblOrderNumRow').style.display = "block";
+            document.getElementById('invMetaTable').style.display = "table";
+            
+            if (document.getElementById('rcptPaidInFull').checked) {
+                stampBox.style.display = "block";
+            } else {
+                stampBox.style.display = "none";
+            }
+            thankYouBanner.style.display = "block";
+            rcptSummaryBox.style.display = "block";
         } else if (mode === 'TICKET') {
             document.getElementById('lblDocTypeHeader').innerText = "SERVICE TICKET";
             document.getElementById('lblDocNumLabel').innerText = "Ticket #:";
             document.getElementById('lblOrderNumRow').style.display = "none";
             document.getElementById('invMetaTable').style.display = "none";
+            stampBox.style.display = "none";
+            thankYouBanner.style.display = "none";
+            rcptSummaryBox.style.display = "none";
         } else {
             document.getElementById('lblDocTypeHeader').innerText = "PROPOSAL / QUOTE";
             document.getElementById('lblDocNumLabel').innerText = "Quote #:";
             document.getElementById('lblOrderNumRow').style.display = "none";
             document.getElementById('invMetaTable').style.display = "none";
+            stampBox.style.display = "none";
+            thankYouBanner.style.display = "none";
+            rcptSummaryBox.style.display = "none";
         }
 
         const logoBox = document.getElementById('previewLogoBox');
@@ -578,12 +668,10 @@
             document.getElementById('lblQuoteDate').innerText = dateObj.toLocaleDateString();
         }
 
-        // Calculate Net Due Date (30 Days from Service Date)
         const netDueDateObj = new Date(dateObj);
         netDueDateObj.setDate(netDueDateObj.getDate() + 30);
         const formattedNetDueDate = `${netDueDateObj.getMonth() + 1}/${netDueDateObj.getDate()}/${netDueDateObj.getFullYear()}`;
 
-        // Customer & Dispatch Metadata
         const custIDVal = document.getElementById('clientID').value.trim() || "CUST-GENERIC";
         document.getElementById('lblClientID').innerText = custIDVal;
         document.getElementById('lblClient').innerText = document.getElementById('clientName').value || "Valued Client";
@@ -591,22 +679,28 @@
         document.getElementById('lblDispatchPos').innerText = document.getElementById('dispatchPosNum').value.trim() || "N/A";
         document.getElementById('lblAgency').innerText = document.getElementById('ahjAgency').value.trim() || "Local AHJ";
 
-        // Service Categories Checklist
         const cats = [];
         if (document.getElementById('svcCatInstall').checked) cats.push("Installation");
         if (document.getElementById('svcCatRepair').checked) cats.push("Service Repair");
         if (document.getElementById('svcCatInspect').checked) cats.push("Inspection");
         document.getElementById('lblServiceCategories').innerText = cats.join(", ") || "General Service";
 
-        // Populate Invoice-Only Metadata Table
+        // Populate Invoice/Receipt Metadata Table
         if (isInvoice) {
             const termsRadio = document.querySelector('input[name="payTerms"]:checked');
-            const termsText = termsRadio ? termsRadio.value : "Net 30 Days";
+            document.getElementById('metaHeaderRow').innerHTML = `<th>Customer ID</th><th>Terms Description</th><th>Service Date</th><th>Net Due Date</th>`;
+            document.getElementById('metaDataRow').innerHTML = `<td>${custIDVal}</td><td>${termsRadio ? termsRadio.value : "Net 30 Days"}</td><td>${document.getElementById('lblQuoteDate').innerText}</td><td>${formattedNetDueDate}</td>`;
+        } else if (isReceipt) {
+            const rcptMethod = document.getElementById('rcptPaymentMethod').value;
+            const rcptDateRaw = document.getElementById('rcptPaymentDate').value;
+            let formattedRcptDate = document.getElementById('lblQuoteDate').innerText;
+            if (rcptDateRaw) {
+                const p = rcptDateRaw.split('-');
+                formattedRcptDate = `${p[1]}/${p[2]}/${p[0]}`;
+            }
 
-            document.getElementById('lblInvCustID').innerText = custIDVal;
-            document.getElementById('lblInvTerms').innerText = termsText;
-            document.getElementById('lblInvDate').innerText = document.getElementById('lblQuoteDate').innerText;
-            document.getElementById('lblInvNetDueDate').innerText = formattedNetDueDate;
+            document.getElementById('metaHeaderRow').innerHTML = `<th>Customer ID</th><th>Payment Method</th><th>Payment Date</th><th>Status</th>`;
+            document.getElementById('metaDataRow').innerHTML = `<td>${custIDVal}</td><td>${rcptMethod}</td><td>${formattedRcptDate}</td><td>${document.getElementById('rcptPaidInFull').checked ? 'PAID IN FULL ✔' : 'PARTIAL PAYMENT'}</td>`;
         }
 
         const tbody = document.getElementById('lineItems');
@@ -675,6 +769,18 @@
 
         document.getElementById('lblTotal').innerText = finalTotal.toFixed(2);
 
+        // Calculate Receipt Balance
+        if (isReceipt) {
+            let paidInput = parseFloat(document.getElementById('rcptAmountPaid').value);
+            if (isNaN(paidInput)) {
+                paidInput = finalTotal; // Default to full amount if left blank
+                document.getElementById('rcptAmountPaid').value = finalTotal.toFixed(2);
+            }
+            const remBal = Math.max(0, finalTotal - paidInput);
+            document.getElementById('lblRcptPaidAmt').innerText = paidInput.toFixed(2);
+            document.getElementById('lblRcptBalance').innerText = remBal.toFixed(2);
+        }
+
         const termsRadio = document.querySelector('input[name="payTerms"]:checked');
         document.getElementById('lblPayTerms').innerText = termsRadio ? termsRadio.value : "Net 30 Days";
 
@@ -693,7 +799,6 @@
             document.getElementById('zelleQrContainer').style.display = 'none';
         }
 
-        // Render Separated Notes Blocks
         const servicesNeeded = document.getElementById('servicesNeededInput').value.trim();
         if (servicesNeeded) {
             document.getElementById('lblServicesNeeded').innerText = servicesNeeded;
